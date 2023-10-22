@@ -3,14 +3,13 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-#define NBCOL 784
+#define VECTOR_DIM 784
 int nb_class_max = 10;
 
 //ATTENTION : je n'ai pas respecté les typedef de l'énoncé
 //par exemple un pointeur vers une structure vecteur est de type vector* 
 
 struct s_vector {
-  int size;                      /* taille du tableau content */
   unsigned char* content;          /* tableau d'éléments de [[0, 255]] */
 };
 typedef struct s_vector vector;
@@ -34,22 +33,34 @@ struct s_candidate {
 };
 typedef struct s_candidate candidate;
 
-void main(){
-    printf("Algo KNN - GUEGUEN Pierre\n\n");
+unsigned char next_char(FILE* f) {
+  unsigned char partial = 0;
+  char c = fgetc(f);
+  while (true) {
+    if (c == ',' || c == '\n') {
+      return partial;
+    } else {
+      partial = partial * 10 + (c - 48);//'0' -> 0
+      c = fgetc(f);
+    }
+  }
 }
 
-vector* create_zero_vector(int n){
+vector* create_zero_vector(){
     int i;
     vector* v = malloc(sizeof(vector));
     assert(v != NULL);
-    v->size = n;
-    for(i = 0; i < n; i++){
+
+    v->content = malloc(VECTOR_DIM*sizeof(unsigned char));
+    assert(v->content != NULL);
+    for(i = 0; i < VECTOR_DIM; i++){
         v->content[i] = 0;
     }
     return v;
 }
 
 void delete_vector(vector* v){
+    free(v->content);
     free(v);
 }
 
@@ -57,11 +68,11 @@ void print_vector(vector* v, bool newline){
     int i;
 
     printf("(");
-    for(i = 0; i < v->size; i++){
+    for(i = 0; i < VECTOR_DIM; i++){
         if(i!=0){
             printf(", ");
         }
-        printf("%c", v->content[i]);
+        printf("%d", v->content[i]);
     }
     newline ? printf(")") : printf(")\n");
 }
@@ -69,11 +80,10 @@ void print_vector(vector* v, bool newline){
 double sq(double a){return a*a;}
 
 double distance(vector* u, vector* v){
-    assert(u->size == v->size);
     double sum = 0;
     int i;
 
-    for(i = 0; i < u->size; i++){
+    for(i = 0; i < VECTOR_DIM; i++){
         sum += sq(u->content[i] - v->content[i]);
     }
     return sqrt(sum);
@@ -84,7 +94,29 @@ database* create_empty_database(int n){
     assert(db != NULL);
     db->size = n;
     db->datas = malloc(n*sizeof(classified_data));
+    assert(db->datas != NULL);
     return db;
+}
+
+void fill_db(char* filename, database* db){
+    int i, j;
+    vector* currentVector;
+
+    FILE* f = fopen(filename, "r");
+    if(f == NULL){
+        printf("fichier %s introuvable", filename);
+    }
+
+    for(i = 0; i < db->size; i++){
+        db->datas[i].class = (int)next_char(f);
+        currentVector = create_zero_vector();
+        for(j = 0; j < VECTOR_DIM; j++){
+            currentVector->content[j] = next_char(f);
+        }
+        db->datas[i].vector = currentVector;
+    }
+
+    fclose(f);
 }
 
 void delete_database(database* db){
@@ -99,13 +131,13 @@ void delete_database(database* db){
 void print_database(database* db){
     int i;
 
-    printf("{");
+    printf("{\n");
     for(i = 0; i < db->size; i++){
         printf("\t");
         print_vector(db->datas[i].vector, false);
         printf(" ~> %d\n", db->datas[i].class);
     }
-    printf("}");
+    printf("}\n");
 }
 
 candidate* create_candidate_list(int dataIndex, double distToNeedle){
@@ -136,4 +168,12 @@ void print_candidate_list(candidate* list, database* db){
         printf(" at dist: %f\n", current->distToNeedle);
         current = current->next;
     }
+}
+
+void main(){
+    printf("Algo KNN - GUEGUEN Pierre\n\n");
+    database* train_db = create_empty_database(10);
+    //printf("%d", train_db->datas[0]);
+    fill_db("./data/train_1", train_db);
+    print_database(train_db);
 }
