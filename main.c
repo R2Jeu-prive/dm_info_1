@@ -6,23 +6,33 @@
 #define NBCOL 784
 int nb_class_max = 10;
 
-struct vector_s {
+//ATTENTION : je n'ai pas respecté les typedef de l'énoncé
+//par exemple un pointeur vers une structure vecteur est de type vector* 
+
+struct s_vector {
   int size;                      /* taille du tableau content */
   unsigned char* content;          /* tableau d'éléments de [[0, 255]] */
 };
-typedef struct vector_s vector;
+typedef struct s_vector vector;
 
-struct classified_data_s {
+struct s_classified_data {
     vector* vector; /* le vecteur */
     int class; /* sa classe */
 };
-typedef struct classified_data_s classified_data;
+typedef struct s_classified_data classified_data;
 
-struct database_s {
+struct s_database {
     int size; /* taille du jeu de données */
     classified_data* datas; /* tableau contenant les données classifiées */
 };
-typedef struct database_s database;
+typedef struct s_database database;
+
+struct s_candidate {
+    int dataIndex; /* indice du point dans le jeu de donnée */
+    double distToNeedle; /* distance au point de recherche */
+    struct s_candidate* next;
+};
+typedef struct s_candidate candidate;
 
 void main(){
     printf("Algo KNN - GUEGUEN Pierre\n\n");
@@ -96,4 +106,34 @@ void print_database(database* db){
         printf(" ~> %d\n", db->datas[i].class);
     }
     printf("}");
+}
+
+candidate* create_candidate_list(int dataIndex, double distToNeedle){
+    candidate* list = malloc(sizeof(candidate));
+    assert(list != NULL);
+    list->dataIndex = dataIndex;
+    list->distToNeedle = distToNeedle;
+    list->next = NULL;
+    return list;
+}
+
+void delete_candidate_list(candidate* list){
+    candidate* current = list;
+    candidate* next;
+    while(current != NULL){
+        next = current->next;
+        free(current);
+        current = next;
+    }
+}
+
+void print_candidate_list(candidate* list, database* db){
+    candidate* current = list;
+    printf("Candidate List :");
+    while(current != NULL){
+        printf("\t");
+        print_vector(db->datas[current->dataIndex].vector, false);
+        printf(" at dist: %f\n", current->distToNeedle);
+        current = current->next;
+    }
 }
