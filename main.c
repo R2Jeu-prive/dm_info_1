@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #define VECTOR_DIM 784
 #define ASCII_GRAYSCALE " .'`^\",:;Il!i><~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%%B@$"
-int nb_class_max = 10;
+#define CLASS_COUNT 10
 
 //ATTENTION : je n'ai pas respecté les typedef de l'énoncé
 //par exemple un pointeur vers une structure vecteur est de type vector* 
@@ -236,6 +236,28 @@ candidate* knn(database* db, int k, vector* needle){
     return list;
 }
 
+int mostCommonClass(database* db, candidate* list){
+    candidate* current = list;
+    int current_class;
+    int* votes = malloc(CLASS_COUNT*sizeof(int));
+    assert(votes != NULL);
+    int i;
+    int most_common_class = 0;
+    int most_common_class_votes = 0;
+    for(i = 0; i < CLASS_COUNT; i++){votes[i] = 0;}  //init votes at 0
+    while(current != NULL){
+        int current_class = db->datas[current->dataIndex].class;
+        votes[current_class] += 1;
+        if(votes[current_class] > most_common_class_votes){
+            most_common_class_votes = votes[current_class];
+            most_common_class = current_class;
+        }
+        current = current->next;
+    }
+    free(votes);
+    return most_common_class;
+}
+
 void main(){
     printf("Algo KNN - GUEGUEN Pierre\n\n");
     database* train_db = create_empty_database(1000);
@@ -244,7 +266,8 @@ void main(){
     fill_db("./data/test", test_db);
     vector* needle = test_db->datas[1].vector;
     show_vector(needle);
-    printf("\n\n\n\n");
-    candidate* closestVectors = knn(train_db, 10, needle);
-    print_candidate_list(closestVectors, train_db);
+    printf("\n");
+    candidate* closestVectors = knn(train_db, 5, needle);
+    //print_candidate_list(closestVectors, train_db);
+    printf("I think this is a %d\n", mostCommonClass(train_db, closestVectors));
 }
