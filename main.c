@@ -4,13 +4,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #define VECTOR_DIM 784
+#define ASCII_GRAYSCALE " .'`^\",:;Il!i><~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%%B@$"
 int nb_class_max = 10;
 
 //ATTENTION : je n'ai pas respecté les typedef de l'énoncé
 //par exemple un pointeur vers une structure vecteur est de type vector* 
 
 struct s_vector {
-  unsigned char* content;          /* tableau d'éléments de [[0, 255]] */
+    unsigned char* content;          /* tableau d'éléments de [[0, 255]] */
 };
 typedef struct s_vector vector;
 
@@ -77,6 +78,20 @@ void print_vector(vector* v, bool newline){
     newline ? printf(")") : printf(")\n");
 }
 
+void show_vector(vector* v){
+    assert(VECTOR_DIM == 784);
+    int x, y;
+    int val;
+    for(x = 0; x < 28; x++){
+        for(y = 0; y < 28; y++){
+            val = (int)v->content[28*x + y];
+            val = 68*val/255;
+            printf("%c",ASCII_GRAYSCALE[val]);
+        }
+        printf("\n");
+    }
+}
+
 double sq(double a){return a*a;}
 
 double distance(vector* u, vector* v){
@@ -134,13 +149,13 @@ void print_database(database* db){
     printf("{\n");
     for(i = 0; i < db->size; i++){
         printf("\t");
-        print_vector(db->datas[i].vector, false);
+        show_vector(db->datas[i].vector);
         printf(" ~> %d\n", db->datas[i].class);
     }
     printf("}\n");
 }
 
-candidate* create_candidate_list(int dataIndex, double distToNeedle){
+candidate* create_candidate(int dataIndex, double distToNeedle){
     candidate* list = malloc(sizeof(candidate));
     assert(list != NULL);
     list->dataIndex = dataIndex;
@@ -164,16 +179,72 @@ void print_candidate_list(candidate* list, database* db){
     printf("Candidate List :");
     while(current != NULL){
         printf("\t");
-        print_vector(db->datas[current->dataIndex].vector, false);
+        show_vector(db->datas[current->dataIndex].vector);
         printf(" at dist: %f\n", current->distToNeedle);
         current = current->next;
     }
 }
 
+int insert_in_candidate_list(candidate** firstCandidatePointer, int len, int k, database* db, int index, vector* needle){
+    vector* inserted_vector = db->datas[index].vector;
+    double distToNeedle = distance(needle, inserted_vector);
+    candidate* new_candidate = create_candidate(index, distToNeedle);
+    candidate* current_candidate = (*firstCandidatePointer);
+    candidate* candidate_to_delete;
+
+    if((*firstCandidatePointer)->distToNeedle < distToNeedle && len == k){
+        //worse than all vectors in list and list is full
+        delete_candidate_list(new_candidate);
+        return k;
+    }
+    if((*firstCandidatePointer)->distToNeedle < distToNeedle){
+        //worse than all vectors in list but list is not full;
+        new_candidate->next = (*firstCandidatePointer);
+        (*firstCandidatePointer) = new_candidate;
+        return len+1;
+    }
+
+    //new_candidate is better than worst candidate so order it
+    while(current_candidate->next != NULL && current_candidate->next->distToNeedle >= distToNeedle){
+        current_candidate = current_candidate->next;
+    }
+    new_candidate->next = current_candidate->next;
+    current_candidate->next = new_candidate;
+
+    //if we were full than remove worse candidate (first candidate in list)
+    if(len == k){
+        candidate_to_delete = (*firstCandidatePointer);
+        (*firstCandidatePointer) = (*firstCandidatePointer)->next;
+        candidate_to_delete->next = NULL;
+        delete_candidate_list(candidate_to_delete);
+        return k;
+    }
+
+    return len+1;
+}
+
+candidate* knn(database* db, int k, vector* needle){
+    assert(db->size > 0);
+    candidate* list = create_candidate(0, distance(db->datas[0].vector, needle));
+    int i;
+    int len = 1;
+
+    for(i = 1; i < db->size; i++){
+        len = insert_in_candidate_list(&list, len, k, db, i, needle);
+    }
+
+    return list;
+}
+
 void main(){
     printf("Algo KNN - GUEGUEN Pierre\n\n");
-    database* train_db = create_empty_database(10);
-    //printf("%d", train_db->datas[0]);
+    database* train_db = create_empty_database(1000);
+    database* test_db = create_empty_database(10);
     fill_db("./data/train_1", train_db);
-    print_database(train_db);
+    fill_db("./data/test", test_db);
+    vector* needle = test_db->datas[1].vector;
+    show_vector(needle);
+    printf("\n\n\n\n");
+    candidate* closestVectors = knn(train_db, 10, needle);
+    print_candidate_list(closestVectors, train_db);
 }
