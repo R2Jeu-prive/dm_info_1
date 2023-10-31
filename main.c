@@ -223,19 +223,6 @@ int insert_in_candidate_list(candidate** firstCandidatePointer, int len, int k, 
     return len+1;
 }
 
-candidate* knn(database* db, int k, vector* needle){
-    assert(db->size > 0);
-    candidate* list = create_candidate(0, distance(db->datas[0].vector, needle));
-    int i;
-    int len = 1;
-
-    for(i = 1; i < db->size; i++){
-        len = insert_in_candidate_list(&list, len, k, db, i, needle);
-    }
-
-    return list;
-}
-
 int mostCommonClass(database* db, candidate* list){
     candidate* current = list;
     int current_class;
@@ -258,16 +245,74 @@ int mostCommonClass(database* db, candidate* list){
     return most_common_class;
 }
 
-void main(){
+int classify(database* db, int k, vector* needle){
+    assert(db->size > 0);
+    candidate* list = create_candidate(0, distance(db->datas[0].vector, needle));
+    int i;
+    int len = 1;
+
+    for(i = 1; i < db->size; i++){
+        len = insert_in_candidate_list(&list, len, k, db, i, needle);
+    }
+
+    return mostCommonClass(db, list);
+}
+
+int** confusion_matrix(database* train_db, database* test_db, int k, bool show_errors){
+    int i, j;
+    int real_class, guessed_class;
+
+    //create 2d array
+    int** matrix = malloc(CLASS_COUNT*sizeof(int*));
+    assert(matrix != NULL);
+    for(i = 0; i < CLASS_COUNT; i++){
+        matrix[i] = malloc(CLASS_COUNT*sizeof(int));
+        assert(matrix[i] != NULL);
+        for(j = 0; j < CLASS_COUNT; j++){
+            matrix[i][j] = 0;
+        }
+    }
+
+    for(i = 0; i < test_db->size; i++){
+        real_class = test_db->datas[i].class;
+        guessed_class = classify(train_db, k, test_db->datas[i].vector);
+        matrix[real_class][guessed_class] += 1;
+        if(real_class != guessed_class && show_errors){
+            show_vector(test_db->datas[i].vector);
+            printf("is %d, model guessed %d\n\n", real_class, guessed_class);
+        }
+    }
+
+    return matrix;
+}
+
+void show_correct_percentage(database* test_db, int** matrix){
+    int i;
+    int count = 0;
+    for(i = 0; i < CLASS_COUNT; i++){
+        count += matrix[i][i];
+    }
+    printf("%d%% correct\n", count*100/test_db->size);
+}
+
+void show_matrix(int** matrix){
+    int i, j;
+    for(i = 0; i < CLASS_COUNT; i++){
+        for(j = 0; j < CLASS_COUNT; j++){
+            printf("%d ", matrix[i][j]);
+        }
+        printf("\n");
+    }
+}
+
+int main(){
     printf("Algo KNN - GUEGUEN Pierre\n\n");
-    database* train_db = create_empty_database(1000);
-    database* test_db = create_empty_database(10);
+    database* train_db = create_empty_database(30000);
+    database* test_db = create_empty_database(100);
     fill_db("./data/train_1", train_db);
     fill_db("./data/test", test_db);
-    vector* needle = test_db->datas[1].vector;
-    show_vector(needle);
-    printf("\n");
-    candidate* closestVectors = knn(train_db, 5, needle);
-    //print_candidate_list(closestVectors, train_db);
-    printf("I think this is a %d\n", mostCommonClass(train_db, closestVectors));
+    int** matrix = confusion_matrix(train_db, test_db, 5, true);
+    show_matrix(matrix);
+    show_correct_percentage(test_db, matrix);
+    return 0;
 }
