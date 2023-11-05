@@ -91,7 +91,7 @@ let pile (el:'a) (l:'a lenList) : 'a lenList =
   let (realList, len) = l in (el::realList, len + 1)
 ;;
 
-let rec nearest (n:int) (tree:kd_tree) (needle:vector): (vector*float) lenList =
+let rec nearest (n:int) (tree:kd_tree) (needle:vector): (vector*float) lenList * (vector*float) lenList=
   let rec try_add_to_ordered_bests (a:(vector*float) lenList) (new_best:vector*float) : (vector*float) lenList =
     let (_, new_d) = new_best
     and (bests, bests_length) = a
@@ -107,31 +107,38 @@ let rec nearest (n:int) (tree:kd_tree) (needle:vector): (vector*float) lenList =
     |((_,d)::_,_) -> d
     |_ -> Float.infinity
   in
-  (*let rec merge_bests (a:(vector*float) lenList) (b:(vector*float) lenList): (vector*float) lenList =
-    match a with
-    |(head::tail, len) -> merge_bests (tail, len-1) (try_add_to_ordered_bests b head)
-    |_ -> b (*a is ([],0)*)
-  in*)
-  let rec work (current_tree:kd_tree) (bests:(vector*float) lenList) : (vector*float) lenList =
+  let rec work (current_tree:kd_tree) (bests:(vector*float) lenList) (explored:(vector*float) lenList): (vector*float) lenList * (vector*float) lenList=
     match current_tree with
-    |Leaf -> bests
+    |Leaf -> (bests,explored)
     |Node(left, i, vect, right) -> (
       let squared_dist = squared_dist vect needle 
       and squared_dist_to_bar = squared_dist_uni_dim vect needle i
+      and (ex,ex_count) = explored
       and (_,bests_length) = bests
       in
-      (*print_int bests_length;
-      print_string "\n";*)
+      let new_explored = ((vect,squared_dist)::ex,ex_count+1)
+      in
       if squared_dist_to_bar > get_worst_best_squared_dist bests && bests_length == n then (
-        if (f_cmp i) (vect,needle) then work right bests else work left bests (*we chopped half of the tree search*)
+        if (f_cmp i) (vect,needle)
+        then work right bests new_explored
+        else work left bests new_explored
+        (*we chopped half of the tree search*)
       ) else (
         if (f_cmp i) (vect,needle)
-        then work left (work right (try_add_to_ordered_bests bests (vect,squared_dist)))
-        else work right (work left (try_add_to_ordered_bests bests (vect,squared_dist)))
+        then begin
+          let (temp_bests, temp_explored) = work right (try_add_to_ordered_bests bests (vect,squared_dist)) new_explored
+          in
+          work left temp_bests temp_explored
+        end
+        else begin
+          let (temp_bests, temp_explored) = work left (try_add_to_ordered_bests bests (vect,squared_dist)) new_explored
+          in
+          work right temp_bests temp_explored
+        end
       )
     )
   in
-  work tree ([],0)
+  work tree ([],0) ([],0)
 ;;
 
 let yellow = Graphics.rgb 210 160 4;;
@@ -139,6 +146,20 @@ let cx = 1000;;
 let cy = 1000;;
 let to_x pt = (pt *. (float_of_int cx)) |> int_of_float;;
 let to_y pt = (pt *. (float_of_int cy)) |> int_of_float;;
+
+let draw_result (color:int) (v:vector) (r:int): unit =
+  let dx, dy = to_x v.(0), to_y v.(1) in
+  Graphics.set_color color;
+  Graphics.fill_circle dx dy r
+;;
+
+let rec draw_results (color:int) (results:(vector*float) lenList) (r:int): unit =
+  match results with
+  |((v,d)::tail, len) -> 
+    draw_result color v r;
+    draw_results color (tail,len-1) r
+  |_ -> ()
+;;
 
 let rec draw_kd_tree_aux (t: kd_tree) swx swy nex ney =
   match t with
@@ -151,7 +172,7 @@ let rec draw_kd_tree_aux (t: kd_tree) swx swy nex ney =
           Graphics.set_color Graphics.black;
           Graphics.moveto dx swy; Graphics.lineto dx ney;
           Graphics.set_color yellow;
-          Graphics.fill_circle dx dy 5;
+          Graphics.fill_circle dx dy 3;
           draw_kd_tree_aux g swx swy dx ney;
           draw_kd_tree_aux d dx swy nex ney;
         end
@@ -160,7 +181,7 @@ let rec draw_kd_tree_aux (t: kd_tree) swx swy nex ney =
           Graphics.set_color Graphics.black;
           Graphics.moveto swx dy; Graphics.lineto nex dy;
           Graphics.set_color yellow;
-          Graphics.fill_circle dx dy 5;
+          Graphics.fill_circle dx dy 3;
           draw_kd_tree_aux g swx swy nex dy;
           draw_kd_tree_aux d swx dy nex ney;
         end;
@@ -186,13 +207,21 @@ let rec show_bests (bests:(vector*float) lenList): unit =
 
 let main () =
   Random.self_init ();
-  let nb_points = 63 in
-  let data = build_data nb_points in
-  let kd_tree = (create_kd_tree data) in         (* TODO : remplacer ici par votre fonction de génération d'un arbre k dimensionel *)
-  let bests = nearest 4 kd_tree [|0.2;0.2|] in
-  show_bests bests;
+  let nb_points = 10000 in
+  let points = build_data nb_points in
+  let needle = (build_data 1).(0) in
+  let tree = (create_kd_tree points) in         (* TODO : remplacer ici par votre fonction de génération d'un arbre k dimensionel *)
+  let (neighbours,explored) = nearest 1 tree needle in
+  let (_,nb_explored) = explored in
+  print_int nb_explored;
+  print_string " of ";
+  print_int nb_points;
+  print_string " explored\n";
   Graphics.open_graph " 1000x1000";
-  draw_kd_tree kd_tree;
+  draw_kd_tree tree;
+  draw_result Graphics.red needle 5;
+  draw_results Graphics.blue explored 4;
+  draw_results Graphics.red neighbours 4; 
   let _ = Graphics.wait_next_event [Key_pressed] in
   Graphics.close_graph ();
 ;;
