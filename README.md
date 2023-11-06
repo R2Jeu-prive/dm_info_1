@@ -1,7 +1,7 @@
 
 # DM Info Toussaint
 
-Enoncé : [pdf](énoncé.pdf)
+Enoncé : [pdf](https://github.com/R2Jeu-prive/dm_info_1/blob/main/web/%C3%A9nonc%C3%A9.pdf)
 ## Code C
 
 ##### - J'ai traité toutes les questions (en passant par Partie 2 - Listes)
