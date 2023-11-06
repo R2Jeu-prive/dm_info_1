@@ -309,8 +309,8 @@ int main(){
     printf("Algo KNN - GUEGUEN Pierre\n\n");
     database* train_db = create_empty_database(30000);
     database* test_db = create_empty_database(100);
-    fill_db("./data/train_1", train_db);
-    fill_db("./data/test", test_db);
+    fill_db("./data/train.txt", train_db);
+    fill_db("./data/test.txt", test_db);
     int** matrix = confusion_matrix(train_db, test_db, 5, true);
     show_matrix(matrix);
     show_correct_percentage(test_db, matrix);
